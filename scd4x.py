@@ -4,8 +4,8 @@
 #
 # SPDX-License-Identifier: MIT
 #
-# this version: also Copyright (c) 2022-2024 peter-l5
-# build version: v103
+# this version: also Copyright (c) 2022-2026 peter-l5, khaylenko
+# build version: v105
 
 """
 `micropython_scd4x`
@@ -14,7 +14,7 @@
 Driver for Sensirion SCD4X CO2 sensor
 
 
-* Author(s): ladyada, peter-l5
+* Author(s): ladyada, peter-l5, khaylenko
 
 Implementation Notes
 --------------------
@@ -34,7 +34,7 @@ from machine import I2C
 from micropython import const
 import struct
 
-__version__ = "v103"
+__version__ = "v105"
 __repo__ = "https://github.com/peter-l5/MicroPython_SCD4X"
 
 SCD4X_DEFAULT_ADDR = 0x62
@@ -56,6 +56,7 @@ _SCD4X_SETPRESSURE = const(0xE000)
 _SCD4X_PERSISTSETTINGS = const(0x3615)
 _SCD4X_GETASCE = const(0x2313)
 _SCD4X_SETASCE = const(0x2416)
+_SCD4X_SENSORVARIANT = const(0x202F)
 
 
 class SCD4X:
@@ -94,12 +95,13 @@ class SCD4X:
 
     """
 
-    def __init__(self, i2c_bus: I2C, address: int = SCD4X_DEFAULT_ADDR) -> None:
-        print("__init__ :", dir())
-        print("address : %x" % address)
-        print("i2c_bus : ", i2c_bus)
+    def __init__(self, i2c_bus: I2C, address: int = SCD4X_DEFAULT_ADDR, debug_info: bool = True) -> None:
+        if debug_info:
+            print("__init__ :", dir())
+            print("address : %x" % address)
+            print("i2c_bus : ", i2c_bus)
+            print(i2c_bus)
         self.address = address
-        print(i2c_bus)
         self.i2c_device = i2c_bus
         self._buffer = bytearray(18)
         self._cmd = bytearray(2)
@@ -229,6 +231,26 @@ class SCD4X:
             self._buffer[6],
             self._buffer[7],
         )
+    
+    @property
+    def sensor_variant(self) -> dict:
+        """Request a string containing the sensor variant"""
+        self._send_command(_SCD4X_SENSORVARIANT, cmd_delay=0.001)
+        self._read_reply(self._buffer, 3)
+        
+        raw = (self._buffer[0] << 8) | self._buffer[1]
+        extracted = (raw & 0xF000) >> 12
+        
+        if extracted == 0:
+            variant = 'SCD40'
+        elif extracted == 1:
+            variant = 'SCD41'
+        elif extracted == 5:
+            variant = 'SCD43'
+        else:
+            variant = 'Unknown'
+        
+        return {'variant': variant, 'raw': raw}
 
     def stop_periodic_measurement(self) -> None:
         """Stop measurement mode"""
