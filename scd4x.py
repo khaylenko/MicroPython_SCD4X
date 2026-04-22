@@ -34,7 +34,7 @@ from machine import I2C
 from micropython import const
 import struct
 
-__version__ = "v105"
+__version__ = "v106"
 __repo__ = "https://github.com/peter-l5/MicroPython_SCD4X"
 
 SCD4X_DEFAULT_ADDR = 0x62
@@ -219,18 +219,16 @@ class SCD4X:
         return not ((self._buffer[0] & 0x07 == 0) and (self._buffer[1] == 0))
 
     @property
-    def serial_number(self) -> Tuple[int, int, int, int, int, int]:
-        """Request a 6-tuple containing the unique serial number for this sensor"""
+    def serial_number(self) -> int:
+        """Request the unique serial number for this sensor."""
         self._send_command(_SCD4X_SERIALNUMBER, cmd_delay=0.001)
         self._read_reply(self._buffer, 9)
-        return (
-            self._buffer[0],
-            self._buffer[1],
-            self._buffer[3],
-            self._buffer[4],
-            self._buffer[6],
-            self._buffer[7],
-        )
+        
+        word0 = (self._buffer[0] << 8) | self._buffer[1]
+        word1 = (self._buffer[3] << 8) | self._buffer[4]
+        word2 = (self._buffer[6] << 8) | self._buffer[7]
+                
+        return word0 << 32 | word1 << 16 | word2
     
     @property
     def sensor_variant(self) -> dict:
