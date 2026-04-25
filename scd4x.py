@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: MIT
 #
 # this version: also Copyright (c) 2022-2026 peter-l5, khaylenko
-# build version: v105
+# build version: v107
 
 """
 `micropython_scd4x`
@@ -34,7 +34,7 @@ from machine import I2C
 from micropython import const
 import struct
 
-__version__ = "v106"
+__version__ = "v107"
 __repo__ = "https://github.com/peter-l5/MicroPython_SCD4X"
 
 SCD4X_DEFAULT_ADDR = 0x62
@@ -193,14 +193,27 @@ class SCD4X:
     def self_calibration_enabled(self, enabled: bool) -> None:
         self._set_command_value(_SCD4X_SETASCE, enabled)
 
-    def self_test(self) -> None:
+    def self_test(self) -> dict:
         """Performs a self test, takes up to 10 seconds"""
         self.stop_periodic_measurement()
         self._send_command(_SCD4X_SELFTEST, cmd_delay=10)
         self._read_reply(self._buffer, 3)
-        if (self._buffer[0] != 0) or (self._buffer[1] != 0):
-            raise RuntimeError("Self test failed")
-
+        
+        code = (self._buffer[0] << 8) | self._buffer[1]
+        
+        if code == 0:
+            result = 'Test passed'
+        elif code == 512:
+            result = 'Sensor Element Failure'
+        elif code == 1024:
+            result = 'Heater Failure'
+        elif code == 2048:
+            result = 'Measurement Circuit / Out of Range'            
+        else:
+            result = 'Unknown'
+        
+        return {'result': result, 'code': code}
+        
     def _read_data(self) -> None:
         """Reads the temp/hum/co2 from the sensor and caches it"""
         self._send_command(_SCD4X_READMEASUREMENT, cmd_delay=0.001)
